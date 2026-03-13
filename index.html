@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企业管理信息系统</title>
+    <!-- 引入Element UI样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <!-- 引入Vue -->
+    <script src="https://unpkg.com/vue@2"></script>
+    <!-- 引入Element UI组件库 -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <style>
+        .container {
+            width: 100%;
+            padding: 20px;
+        }
+        .search-form {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f5f7fa;
+            border-radius: 4px;
+        }
+        .el-table .cell {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .el-dialog__body {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .form-item {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <h1>企业管理信息系统</h1>
+            
+            <!-- 查询表单 -->
+            <div class="search-form">
+                <el-form :inline="true" :model="searchForm" class="demo-form-inline">
+                    <el-form-item label="企业名称">
+                        <el-input v-model="searchForm.name" placeholder="请输入企业名称"></el-input>
+                    </el-form-item>
+                    <el-form-item label="统一社会信用代码">
+                        <el-input v-model="searchForm.creditCode" placeholder="请输入统一社会信用代码"></el-input>
+                    </el-form-item>
+                    <el-form-item>
+                        <el-button type="primary" @click="handleSearch">查询</el-button>
+                        <el-button @click="resetForm">重置</el-button>
+                        <el-button type="success" @click="handleAdd">新增</el-button>
+                    </el-form-item>
+                </el-form>
+            </div>
+            
+            <!-- 数据表格 -->
+            <el-table
+                v-loading="loading"
+                :data="tableData"
+                style="width: 100%"
+                @selection-change="handleSelectionChange"
+            >
+                <el-table-column type="selection" width="55"></el-table-column>
+                <el-table-column prop="name" label="企业名称" min-width="180">
+                    <template slot-scope="scope">
+                        <a @click="handleDetail(scope.row)" style="cursor: pointer; color: #409EFF;">{{ scope.row.name }}</a>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="creditCode" label="统一社会信用代码" min-width="180"></el-table-column>
+                <el-table-column prop="legalPersonName" label="法定代表人" min-width="120"></el-table-column>
+                <el-table-column prop="regStatus" label="登记状态" min-width="100"></el-table-column>
+                <el-table-column prop="regCapital" label="注册资本" min-width="120"></el-table-column>
+                <el-table-column prop="industry" label="行业" min-width="120"></el-table-column>
+                <el-table-column prop="province" label="省份" min-width="100"></el-table-column>
+                <el-table-column prop="city" label="城市" min-width="100"></el-table-column>
+                <el-table-column prop="establishTime" label="成立日期" min-width="150"></el-table-column>
+                <el-table-column label="操作" min-width="150" fixed="right">
+                    <template slot-scope="scope">
+                        <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
+                        <el-button size="small" type="danger" @click="handleDelete(scope.row.id)">删除</el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+            
+            <!-- 分页 -->
+            <div class="pagination" style="margin-top: 20px; text-align: right;">
+                <el-pagination
+                    @size-change="handleSizeChange"
+                    @current-change="handleCurrentChange"
+                    :current-page="currentPage"
+                    :page-sizes="[10, 20, 50, 100]"
+                    :page-size="pageSize"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    :total="total"
+                ></el-pagination>
+            </div>
+            
+            <!-- 批量删除按钮 -->
+            <div style="margin-top: 20px;">
+                <el-button type="danger" @click="handleBatchDelete" :disabled="selectedRows.length === 0">
+                    批量删除 ({{ selectedRows.length }})
+                </el-button>
+            </div>
+        </div>
+        
+        <!-- 详情弹窗 -->
+        <el-dialog
+            title="企业详情"
+            :visible.sync="detailDialogVisible"
+            width="80%"
+        >
+            <div v-if="currentDetail">
+                <el-form :model="currentDetail" label-width="150px">
+                    <el-row :gutter="20">
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="企业名称">
+                                {{ currentDetail.name }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="统一社会信用代码">
+                                {{ currentDetail.creditCode }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="法定代表人">
+                                {{ currentDetail.legalPersonName }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="登记状态">
+                                {{ currentDetail.regStatus }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="注册资本">
+                                {{ currentDetail.regCapital }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="实缴资本">
+                                {{ currentDetail.actualCapital }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="注册资本币种">
+                                {{ currentDetail.regCapitalCurrency }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="实缴资本币种">
+                                {{ currentDetail.actualCapitalCurrency }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="企业类型">
+                                {{ currentDetail.companyOrgType }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="行业">
+                                {{ currentDetail.industry }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="省份">
+                                {{ currentDetail.province }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="城市">
+                                {{ currentDetail.city }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="区县">
+                                {{ currentDetail.district }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="注册地址">
+                                {{ currentDetail.regLocation }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="登记机关">
+                                {{ currentDetail.regInstitute }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="经营范围">
+                                {{ currentDetail.businessScope }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="电话">
+                                {{ currentDetail.phoneNumber }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="邮箱">
+                                {{ currentDetail.email }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="网址">
+                                {{ currentDetail.websiteList }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="股票名称">
+                                {{ currentDetail.bondName }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="股票代码">
+                                {{ currentDetail.bondNum }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="股票类型">
+                                {{ currentDetail.bondType }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="组织机构代码">
+                                {{ currentDetail.orgNumber }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="纳税人识别号">
+                                {{ currentDetail.taxNumber }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="注册号">
+                                {{ currentDetail.regNumber }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="员工人数">
+                                {{ currentDetail.socialStaffNum }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="员工人数范围">
+                                {{ currentDetail.staffNumRange }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="标签">
+                                {{ currentDetail.tags }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="曾用名">
+                                {{ currentDetail.historyNames }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="简称">
+                                {{ currentDetail.alias }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="评分">
+                                {{ currentDetail.percentileScore }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="是否小微企业">
+                                {{ currentDetail.isMicroEnt === 1 ? '是' : '否' }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="注销原因">
+                                {{ currentDetail.cancelReason }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="吊销原因">
+                                {{ currentDetail.revokeReason }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="工商注册号">
+                                {{ currentDetail.brnNumber }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="曾用股票名称">
+                                {{ currentDetail.usedBondName }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="数据来源地">
+                                {{ currentDetail.base }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="创建时间">
+                                {{ currentDetail.creationDate }}
+                            </el-form-item>
+                        </el-col>
+                        <el-col :span="12" class="form-item">
+                            <el-form-item label="最后更新时间">
+                                {{ currentDetail.lastUpdateDate }}
+                            </el-form-item>
+                        </el-col>
+                    </el-row>
+                </el-form>
+            </div>
+            <span slot="footer" class="dialog-footer">
+                <el-button @click="detailDialogVisible = false">关闭</el-button>
+            </span>
+        </el-dialog>
+        
+        <!-- 新增/编辑弹窗 -->
+        <el-dialog
+            :title="dialogTitle"
+            :visible.sync="dialogVisible"
+            width="80%"
+        >
+            <el-form :model="form" :rules="rules" ref="form" label-width="150px">
+                <el-row :gutter="20">
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="企业名称" prop="name">
+                            <el-input v-model="form.name"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="统一社会信用代码" prop="creditCode">
+                            <el-input v-model="form.creditCode"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="法定代表人" prop="legalPersonName">
+                            <el-input v-model="form.legalPersonName"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="登记状态" prop="regStatus">
+                            <el-input v-model="form.regStatus"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="注册资本" prop="regCapital">
+                            <el-input v-model="form.regCapital"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="实缴资本" prop="actualCapital">
+                            <el-input v-model="form.actualCapital"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="注册资本币种" prop="regCapitalCurrency">
+                            <el-input v-model="form.regCapitalCurrency"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="实缴资本币种" prop="actualCapitalCurrency">
+                            <el-input v-model="form.actualCapitalCurrency"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="企业类型" prop="companyOrgType">
+                            <el-input v-model="form.companyOrgType"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="行业" prop="industry">
+                            <el-input v-model="form.industry"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="省份" prop="province">
+                            <el-input v-model="form.province"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="城市" prop="city">
+                            <el-input v-model="form.city"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="区县" prop="district">
+                            <el-input v-model="form.district"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="注册地址" prop="regLocation">
+                            <el-input v-model="form.regLocation"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="登记机关" prop="regInstitute">
+                            <el-input v-model="form.regInstitute"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="经营范围" prop="businessScope">
+                            <el-input type="textarea" v-model="form.businessScope" :rows="3"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="电话" prop="phoneNumber">
+                            <el-input v-model="form.phoneNumber"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="邮箱" prop="email">
+                            <el-input v-model="form.email"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="网址" prop="websiteList">
+                            <el-input v-model="form.websiteList"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="股票名称" prop="bondName">
+                            <el-input v-model="form.bondName"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="股票代码" prop="bondNum">
+                            <el-input v-model="form.bondNum"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="股票类型" prop="bondType">
+                            <el-input v-model="form.bondType"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="组织机构代码" prop="orgNumber">
+                            <el-input v-model="form.orgNumber"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="纳税人识别号" prop="taxNumber">
+                            <el-input v-model="form.taxNumber"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="注册号" prop="regNumber">
+                            <el-input v-model="form.regNumber"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="员工人数" prop="socialStaffNum">
+                            <el-input v-model.number="form.socialStaffNum" type="number"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="员工人数范围" prop="staffNumRange">
+                            <el-input v-model="form.staffNumRange"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="标签" prop="tags">
+                            <el-input v-model="form.tags"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="曾用名" prop="historyNames">
+                            <el-input v-model="form.historyNames"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="简称" prop="alias">
+                            <el-input v-model="form.alias"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="评分" prop="percentileScore">
+                            <el-input v-model.number="form.percentileScore" type="number"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="是否小微企业" prop="isMicroEnt">
+                            <el-input v-model.number="form.isMicroEnt" type="number"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="注销原因" prop="cancelReason">
+                            <el-input v-model="form.cancelReason"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="吊销原因" prop="revokeReason">
+                            <el-input v-model="form.revokeReason"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="工商注册号" prop="brnNumber">
+                            <el-input v-model="form.brnNumber"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="曾用股票名称" prop="usedBondName">
+                            <el-input v-model="form.usedBondName"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12" class="form-item">
+                        <el-form-item label="数据来源地" prop="base">
+                            <el-input v-model="form.base"></el-input>
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+            </el-form>
+            <span slot="footer" class="dialog-footer">
+                <el-button @click="dialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="submitForm">确定</el-button>
+            </span>
+        </el-dialog>
+    </div>
+    
+    <script>
+        new Vue({
+            el: '#app',
+            data() {
+                return {
+                    // 搜索表单
+                    searchForm: {
+                        name: '',
+                        creditCode: ''
+                    },
+                    // 表格数据
+                    tableData: [],
+                    // 分页数据
+                    currentPage: 1,
+                    pageSize: 20,
+                    total: 0,
+                    // 加载状态
+                    loading: false,
+                    // 详情弹窗
+                    detailDialogVisible: false,
+                    currentDetail: null,
+                    // 新增/编辑弹窗
+                    dialogVisible: false,
+                    dialogTitle: '',
+                    form: {},
+                    // 表单验证规则
+                    rules: {
+                        name: [{ required: true, message: '请输入企业名称', trigger: 'blur' }],
+                        creditCode: [{ required: true, message: '请输入统一社会信用代码', trigger: 'blur' }],
+                        legalPersonName: [{ required: true, message: '请输入法定代表人', trigger: 'blur' }],
+                        regStatus: [{ required: true, message: '请输入登记状态', trigger: 'blur' }],
+                        regCapital: [{ required: true, message: '请输入注册资本', trigger: 'blur' }],
+                        industry: [{ required: true, message: '请输入行业', trigger: 'blur' }],
+                        province: [{ required: true, message: '请输入省份', trigger: 'blur' }],
+                        city: [{ required: true, message: '请输入城市', trigger: 'blur' }],
+                        establishTime: [{ required: true, message: '请输入成立日期', trigger: 'blur' }]
+                    },
+                    // 选中的行
+                    selectedRows: []
+                }
+            },
+            mounted() {
+                // 初始化加载数据
+                this.loadData();
+            },
+            methods: {
+                // 加载数据
+                loadData() {
+                    this.loading = true;
+                    // 模拟API请求
+                    setTimeout(() => {
+                        // 模拟数据
+                        this.tableData = [
+                            {
+                                id: 1,
+                                name: '中航重机股份有限公司',
+                                creditCode: '91520000214434146R',
+                                legalPersonName: '姬苏春',
+                                regStatus: '存续',
+                                regCapital: '77800.32万人民币',
+                                industry: '汽车制造业',
+                                province: '贵州省',
+                                city: '毕节市',
+                                establishTime: '1996-01-01'
+                            },
+                            {
+                                id: 2,
+                                name: '贵州力源液压股份有限公司',
+                                creditCode: '91520000214434146R',
+                                legalPersonName: '姬苏春',
+                                regStatus: '存续',
+                                regCapital: '77800.32万人民币',
+                                industry: '汽车制造业',
+                                province: '贵州省',
+                                city: '贵阳市',
+                                establishTime: '1993-01-01'
+                            }
+                        ];
+                        this.total = 2;
+                        this.loading = false;
+                    }, 500);
+                },
+                // 查询
+                handleSearch() {
+                    this.currentPage = 1;
+                    this.loadData();
+                },
+                // 重置表单
+                resetForm() {
+                    this.searchForm = {
+                        name: '',
+                        creditCode: ''
+                    };
+                },
+                // 分页大小变化
+                handleSizeChange(size) {
+                    this.pageSize = size;
+                    this.loadData();
+                },
+                // 当前页码变化
+                handleCurrentChange(current) {
+                    this.currentPage = current;
+                    this.loadData();
+                },
+                // 选择变化
+                handleSelectionChange(val) {
+                    this.selectedRows = val;
+                },
+                // 查看详情
+                handleDetail(row) {
+                    // 模拟API请求
+                    this.loading = true;
+                    setTimeout(() => {
+                        this.currentDetail = row;
+                        this.detailDialogVisible = true;
+                        this.loading = false;
+                    }, 300);
+                },
+                // 新增
+                handleAdd() {
+                    this.dialogTitle = '新增企业';
+                    this.form = {
+                        name: '',
+                        creditCode: '',
+                        legalPersonName: '',
+                        regStatus: '',
+                        regCapital: '',
+                        actualCapital: '',
+                        regCapitalCurrency: '人民币',
+                        actualCapitalCurrency: '人民币',
+                        businessScope: '',
+                        regLocation: '',
+                        regInstitute: '',
+                        companyOrgType: '',
+                        industry: '',
+                        city: '',
+                        district: '',
+                        phoneNumber: '',
+                        email: '',
+                        websiteList: '',
+                        bondName: '',
+                        bondNum: '',
+                        bondType: '',
+                        orgNumber: '',
+                        taxNumber: '',
+                        regNumber: '',
+                        socialStaffNum: 0,
+                        staffNumRange: '',
+                        tags: '',
+                        historyNames: '',
+                        alias: '',
+                        percentileScore: 0,
+                        isMicroEnt: 0,
+                        cancelReason: '',
+                        revokeReason: '',
+                        brnNumber: '',
+                        usedBondName: '',
+                        base: ''
+                    };
+                    this.dialogVisible = true;
+                },
+                // 编辑
+                handleEdit(row) {
+                    this.dialogTitle = '编辑企业';
+                    // 模拟API请求获取详情
+                    this.loading = true;
+                    setTimeout(() => {
+                        this.form = { ...row };
+                        this.dialogVisible = true;
+                        this.loading = false;
+                    }, 300);
+                },
+                // 删除
+                handleDelete(id) {
+                    this.$confirm('确定要删除这条记录吗？', '提示', {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning'
+                    }).then(() => {
+                        // 模拟API请求
+                        this.loading = true;
+                        setTimeout(() => {
+                            this.$message.success('删除成功');
+                            this.loadData();
+                        }, 300);
+                    }).catch(() => {
+                        this.$message.info('已取消删除');
+                    });
+                },
+                // 批量删除
+                handleBatchDelete() {
+                    if (this.selectedRows.length === 0) return;
+                    
+                    this.$confirm(`确定要删除选中的 ${this.selectedRows.length} 条记录吗？`, '提示', {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning'
+                    }).then(() => {
+                        // 模拟API请求
+                        this.loading = true;
+                        setTimeout(() => {
+                            this.$message.success('批量删除成功');
+                            this.loadData();
+                        }, 300);
+                    }).catch(() => {
+                        this.$message.info('已取消删除');
+                    });
+                },
+                // 提交表单
+                submitForm() {
+                    this.$refs.form.validate((valid) => {
+                        if (valid) {
+                            // 模拟API请求
+                            this.loading = true;
+                            setTimeout(() => {
+                                this.$message.success(this.dialogTitle + '成功');
+                                this.dialogVisible = false;
+                                this.loadData();
+                            }, 300);
+                        } else {
+                            return false;
+                        }
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+</html>
