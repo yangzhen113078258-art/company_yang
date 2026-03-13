@@ -1,0 +1,28 @@
+
+1、TREA 打开文件夹：COMPANY,事前输入了接口文件资料，由TREA自动读取；
+2、输入提示词；
+3、启动项目；
+4、提示将项目代码上传GITHUB
+5、按提示提供GITHUB地址：https://github.com/yangzhen113078258-art/company_yang.git
+6、把代码上传到GITLAB: http://172.16.10.251:9090/dashboard/projects
+     yangzhen113078258，密码：Aa@123456
+
+7、在GITLAB上创建项目，
+
+8、方式一：从GITHUB上下载项目:
+     1.win打开GitBash
+     2.在Git Bash输入命令行
+      cd d:#要保存的磁盘
+      cd dode#要保存的文件加
+      git clonexxx克隆的代码地址xxx（在GITLAB>yangzhen113078258>Company_Yang>Repository"CLONE"按钮下拉框第二个选项）
+
+    方式二IDE中(trae):
+    1.选中对话框左上的项目名称=》选中"克隆Git仓库"=》输入克隆地址=》回车
+
+
+@所有人 
+第一步注册github：Build software better, together
+第二步 根据 git 安装教程 安装git：【2026 最新版】Git安装及环境配置超详细教程(以win11为例子)_git安装及配置教程-CSDN博客
+第三步注册gitlab（本地化部署）：http://172.16.10.251:9090/users/sign_in
+
+company_yang
